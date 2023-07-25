@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html>
+<title>Snapbook</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, user-scalable=yes">
+<head>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f1f1f1;
+    }
+
+    #header {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background-color: #333;
+      color: white;
+      padding: 10px;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    #header h1 {
+      margin: auto;
+    }
+
+    #canvas {
+      position: relative;
+      width: 100%;
+      height: calc(100% - 75px); /* Adjust height for the header */
+      margin-top: 150px; /* Add margin for the header */
+      background-color: transparent;
+      border: none;
+    }
+
+    .image {
+      position: absolute;
+      cursor: move;
+      touch-action: none; /* Disable touch action to enable dragging */
+    }
+
+    #saveButton {
+      margin: auto;
+      padding: 10px 20px;
+      background-color: #4CAF50;
+      color: white;
+      font-size: 18px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #saveButton:hover {
+      background-color: #45a049;
+    }
+
+    #importButton {
+      margin: auto;
+      padding: 10px 20px;
+      background-color: #2196F3;
+      color: white;
+      font-size: 18px;
+      border: none;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    #importButton:hover {
+      background-color: #0b7dda;
+    }
+
+  </style>
+</head>
+<body>
+  <div id="header">
+    <h1><img src="logos.png"></h1>
+    <button id="importButton">Import Image</button>
+    <button id="saveButton">Save Canvas</button>
+  </div>
+  <div id="canvas"></div>
+
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <script>
+    var canvas = document.getElementById('canvas');
+    var isDragging = false;
+    var maxWidth = 200; // To store the maximum width of all images
+    var maxHeight = 200; // To store the maximum height of all images
+
+    var importButton = document.getElementById('importButton');
+    importButton.addEventListener('click', handleImportButtonClick);
+
+    function handleImportButtonClick() {
+      var fileInput = document.createElement('input');
+      fileInput.type = 'file';
+      fileInput.accept = 'image/*';
+      fileInput.addEventListener('change', handleFileSelect);
+      fileInput.click();
+    }
+
+    function handleFileSelect(evt) {
+      var files = evt.target.files; // FileList object
+
+      // Loop through the FileList and render image files.
+      for (var i = 0, f; (f = files[i]); i++) {
+        // Only process image files.
+        if (!f.type.match('image.*')) {
+          continue;
+        }
+
+        var reader = new FileReader();
+
+        // Closure to capture the file information.
+        reader.onload = (function (theFile) {
+          return function (e) {
+            var img = new Image();
+            img.src = e.target.result;
+            img.onload = function () {
+              // Resize the image to fit the canvas.
+              var width = img.width;
+              var height = img.height;
+
+              // Calculate the scale to fit the canvas
+              var canvasWidth = canvas.clientWidth;
+              var canvasHeight = canvas.clientHeight;
+              var scale = Math.min(canvasWidth / width, canvasHeight / height);
+
+              width *= scale;
+              height *= scale;
+
+              // Render the image on the canvas.
+              var imageElement = document.createElement('img');
+              imageElement.classList.add('image');
+              imageElement.src = img.src;
+              imageElement.width = width;
+              imageElement.height = height;
+              imageElement.style.left = '50%';
+              imageElement.style.top = '50%';
+              imageElement.style.transform = 'translate(-50%, -50%)';
+              canvas.appendChild(imageElement);
+
+              // Keep track of maximum width and height of all images
+              maxWidth = Math.max(maxWidth, width);
+              maxHeight = Math.max(maxHeight, height);
+
+              // Make the image draggable
+              dragElement(imageElement);
+
+              // Update the canvas size to fit the image
+              canvas.style.width = maxWidth + 'px';
+              canvas.style.height = maxHeight + 'px';
+            };
+          };
+        })(f);
+
+        // Read in the image file as a data URL.
+        reader.readAsDataURL(f);
+      }
+    }
+
+    // Make the images draggable
+    function dragElement(element) {
+      var pos1 = 0,
+        pos2 = 0,
+        pos3 = 0,
+        pos4 = 0;
+      element.onmousedown = dragMouseDown;
+      element.ontouchstart = dragMouseDown;
+
+      function dragMouseDown(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // get the mouse cursor position at startup:
+        pos3 = e.clientX || e.touches[0].clientX;
+        pos4 = e.clientY || e.touches[0].clientY;
+        document.onmouseup = closeDragElement;
+        document.ontouchend = closeDragElement;
+        // call a function whenever the cursor moves:
+        document.onmousemove = elementDrag;
+        document.ontouchmove = elementDrag;
+      }
+
+      function elementDrag(e) {
+        e = e || window.event;
+        e.preventDefault();
+        // calculate the new cursor position:
+        pos1 = pos3 - (e.clientX || e.touches[0].clientX);
+        pos2 = pos4 - (e.clientY || e.touches[0].clientY);
+        pos3 = e.clientX || e.touches[0].clientX;
+        pos4 = e.clientY || e.touches[0].clientY;
+        // set the element's new position:
+        element.style.top = element.offsetTop - pos2 + 'px';
+        element.style.left = element.offsetLeft - pos1 + 'px';
+      }
+
+      function closeDragElement() {
+        // stop moving when mouse button is released:
+        document.onmouseup = null;
+        document.ontouchend = null;
+        document.onmousemove = null;
+        document.ontouchmove = null;
+      }
+    }
+
+    // Save the canvas as PNG
+    var saveButton = document.getElementById('saveButton');
+    saveButton.addEventListener('click', saveCanvasAsPNG);
+
+    function saveCanvasAsPNG() {
+      html2canvas(canvas, {
+        backgroundColor: null, // Make the canvas transparent
+        useCORS: true // Enable cross-origin image loading
+      }).then(function (canvas) {
+        var link = document.createElement('a');
+        link.href = canvas.toDataURL('image/gif');
+        link.download = 'canvas.gif';
+        link.click();
+      });
+    }
+  </script>
+</body>
+</html>
